@@ -2,7 +2,10 @@ from datastore import Datastore
 
 
 class MemoryDatastore(Datastore):
-    _dict: dict = {}
+    _dict: dict
+
+    def __init__(self):
+        self._dict = {}
 
     def set(self, key, value):
         self._dict[key] = value

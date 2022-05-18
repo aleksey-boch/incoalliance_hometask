@@ -39,3 +39,44 @@ class TestMemoryStore(unittest.TestCase):
         response = self.client.delete(key='qaz')
         self.assertEqual(response.status_codes, inco_client.SUCCESS_STATUS_CODE, response.msg)
 
+    def test_transaction_delete(self):
+        response = self.client.begin()
+
+        response = self.client.delete(key='qaz')
+        self.assertEqual(response.status_codes, inco_client.SUCCESS_STATUS_CODE, response.msg)
+
+        response = self.client.rollback()
+
+        response = self.client.select(key='qaz')
+        self.assertEqual(response.status_codes, inco_client.SUCCESS_STATUS_CODE, response.msg)
+
+    def test_transaction_insert(self):
+        response = self.client.begin()
+
+        response = self.client.insert(key='foo', value='boo')
+        self.assertEqual(response.status_codes, inco_client.SUCCESS_STATUS_CODE, response.msg)
+
+        response = self.client.rollback()
+
+        response = self.client.select(key='foo')
+        self.assertEqual(response.status_codes, inco_client.ENTRY_DOES_NOT_EXIST, response.msg)
+
+    def test_transaction_delete_insert(self):
+        response = self.client.begin()
+
+        response = self.client.delete(key='qaz')
+        self.assertEqual(response.status_codes, inco_client.SUCCESS_STATUS_CODE, response.msg)
+
+        response = self.client.insert(key='foo', value='boo')
+        self.assertEqual(response.status_codes, inco_client.SUCCESS_STATUS_CODE, response.msg)
+
+        response = self.client.insert(key='fooboo', value='boo')
+        self.assertEqual(response.status_codes, inco_client.SUCCESS_STATUS_CODE, response.msg)
+
+        response = self.client.rollback()
+
+        response = self.client.select(key='qaz')
+        self.assertEqual(response.status_codes, inco_client.SUCCESS_STATUS_CODE, response.msg)
+
+        response = self.client.select(key='foo')
+        self.assertEqual(response.status_codes, inco_client.ENTRY_DOES_NOT_EXIST, response.msg)
