@@ -1,3 +1,4 @@
+import fnmatch
 from dataclasses import dataclass
 
 from datastore import Datastore
@@ -103,4 +104,5 @@ class HomeTask_Client:
         self._transaction_log.clear()
 
     def keys(self, pattern):
-        pass
+        value = fnmatch.filter(self._store.get_all_keys(), pattern)
+        return ClientResponse(status_codes=SUCCESS_STATUS_CODE, msg='Keys retrieved successfully', data=value)

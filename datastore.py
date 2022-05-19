@@ -4,13 +4,17 @@ from abc import ABC, abstractmethod
 class Datastore(ABC):
 
     @abstractmethod
-    def set(self, key, value):
+    def set(self, key: str, value: str):
         pass
 
     @abstractmethod
-    def get(self, key):
+    def get(self, key) -> str:
         pass
 
     @abstractmethod
-    def delete(self, key):
+    def delete(self, key: str):
+        pass
+
+    @abstractmethod
+    def get_all_keys(self) -> list:
         pass

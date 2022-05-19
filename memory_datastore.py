@@ -15,3 +15,6 @@ class MemoryDatastore(Datastore):
 
     def delete(self, key):
         return self._dict.pop(key)
+
+    def get_all_keys(self):
+        return self._dict.keys()

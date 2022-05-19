@@ -80,3 +80,8 @@ class TestMemoryStore(unittest.TestCase):
 
         response = self.client.select(key='foo')
         self.assertEqual(response.status_codes, inco_client.ENTRY_DOES_NOT_EXIST, response.msg)
+
+    def test_keys_select(self):
+        response = self.client.keys(pattern='q?z')
+        self.assertEqual(response.status_codes, inco_client.SUCCESS_STATUS_CODE, response.msg)
+        self.assertEqual(response.data, ['qaz', ])
