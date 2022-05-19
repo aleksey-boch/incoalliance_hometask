@@ -32,14 +32,16 @@ class HomeTask_Client:
         try:
             self._store.get(key)
             error = ClientResponse(status_codes=KEY_EXIST, msg='Key exist')
-            self._transaction_errors.update({len(self._transaction_errors): error})
+            if self._is_transaction_started:
+                self._transaction_errors.update({len(self._transaction_errors): error})
             return error
         except KeyError:
             pass
 
         if self._is_transaction_started:
-            self._transaction_log.update({len(self._transaction_log): (self._store.delete, (key,))})
-        self._store.set(key, value)
+            self._transaction_log.update({len(self._transaction_log): (self._store.set, (key, value))})
+        else:
+            self._store.set(key, value)
 
         return ClientResponse(status_codes=SUCCESS_STATUS_CODE, msg='Entry was successfully created')
 
@@ -52,29 +54,33 @@ class HomeTask_Client:
 
     def update(self, key: str, value: str) -> ClientResponse:
         try:
-            old_value = self._store.get(key)
+            self._store.get(key)
         except KeyError:
             error = ClientResponse(status_codes=KEY_DOES_NOT_EXIST, msg='Key does not exist')
-            self._transaction_errors.update({len(self._transaction_errors): error})
+            if self._is_transaction_started:
+                self._transaction_errors.update({len(self._transaction_errors): error})
             return error
 
         if self._is_transaction_started:
-            self._transaction_log.update({len(self._transaction_log): (self._store.set, (key, old_value))})
-        self._store.set(key, value)
+            self._transaction_log.update({len(self._transaction_log): (self._store.set, (key, value))})
+        else:
+            self._store.set(key, value)
 
         return ClientResponse(status_codes=SUCCESS_STATUS_CODE, msg='Entry was successfully updated')
 
     def delete(self, key: str) -> ClientResponse:
         try:
-            old_value = self._store.get(key)
+            self._store.get(key)
         except KeyError:
             error = ClientResponse(status_codes=ENTRY_DOES_NOT_EXIST, msg='Entry does not exist')
-            self._transaction_errors.update({len(self._transaction_errors): error})
+            if self._is_transaction_started:
+                self._transaction_errors.update({len(self._transaction_errors): error})
             return error
 
         if self._is_transaction_started:
-            self._transaction_log.update({len(self._transaction_log): (self._store.set, (key, old_value))})
-        self._store.delete(key)
+            self._transaction_log.update({len(self._transaction_log): (self._store.delete, (key, ))})
+        else:
+            self._store.delete(key)
 
         return ClientResponse(status_codes=SUCCESS_STATUS_CODE, msg='Entry deleted successfully')
 
@@ -83,6 +89,7 @@ class HomeTask_Client:
             return ClientResponse(status_codes=TRANSACTION_ALREADY_STARTED, msg='Transaction already stared')
 
         self._is_transaction_started = True
+        self._transaction_log.clear()
         return ClientResponse(status_codes=SUCCESS_STATUS_CODE, msg='Transaction stared')
 
     def commit(self):
@@ -93,14 +100,14 @@ class HomeTask_Client:
             return ClientResponse(status_codes=TRANSACTION_COMMIT_ERROR, msg='Transaction has error')
 
         self._is_transaction_started = False
-        self._transaction_log.clear()
-
-    def rollback(self):
-        self._is_transaction_started = False
         for _, event in sorted(self._transaction_log.items(), reverse=True):
             action, arg = event
             action(*arg)
 
+        self._transaction_log.clear()
+
+    def rollback(self):
+        self._is_transaction_started = False
         self._transaction_log.clear()
 
     def keys(self, pattern):
