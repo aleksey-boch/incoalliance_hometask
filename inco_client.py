@@ -28,27 +28,31 @@ class HomeTask_Client:
         self._transaction_log: dict = {}
         self._transaction_errors: dict = {}
 
+    def _set_action(self, action, *args):
+        if self._is_transaction_started:
+            self._transaction_log.update({len(self._transaction_log): (action, args)})
+        else:
+            action(*args)
+
+    def _log_update(self, error):
+        if self._is_transaction_started:
+            self._transaction_errors.update({len(self._transaction_errors): error})
+        return error
+
     def insert(self, key: str, value: str) -> ClientResponse:
         try:
             self._store.get(key)
-            error = ClientResponse(status_codes=KEY_EXIST, msg='Key exist')
-            if self._is_transaction_started:
-                self._transaction_errors.update({len(self._transaction_errors): error})
-            return error
+            return self._log_update(error=ClientResponse(status_codes=KEY_EXIST, msg='Key exist'))
         except KeyError:
             pass
 
-        if self._is_transaction_started:
-            self._transaction_log.update({len(self._transaction_log): (self._store.set, (key, value))})
-        else:
-            self._store.set(key, value)
-
-        return ClientResponse(status_codes=SUCCESS_STATUS_CODE, msg='Entry was successfully created')
+        self._set_action(self._store.set, key, value)
+        return ClientResponse(msg='Entry was successfully created')
 
     def select(self, key: str) -> ClientResponse:
         try:
             value = self._store.get(key)
-            return ClientResponse(status_codes=SUCCESS_STATUS_CODE, msg='Entry retrieved successfully', data=value)
+            return ClientResponse(msg='Entry retrieved successfully', data=value)
         except KeyError:
             return ClientResponse(status_codes=ENTRY_DOES_NOT_EXIST, msg='Entry does not exist')
 
@@ -56,43 +60,29 @@ class HomeTask_Client:
         try:
             self._store.get(key)
         except KeyError:
-            error = ClientResponse(status_codes=KEY_DOES_NOT_EXIST, msg='Key does not exist')
-            if self._is_transaction_started:
-                self._transaction_errors.update({len(self._transaction_errors): error})
-            return error
+            return self._log_update(error=ClientResponse(status_codes=KEY_DOES_NOT_EXIST, msg='Key does not exist'))
 
-        if self._is_transaction_started:
-            self._transaction_log.update({len(self._transaction_log): (self._store.set, (key, value))})
-        else:
-            self._store.set(key, value)
-
-        return ClientResponse(status_codes=SUCCESS_STATUS_CODE, msg='Entry was successfully updated')
+        self._set_action(self._store.set, key, value)
+        return ClientResponse(msg='Entry was successfully updated')
 
     def delete(self, key: str) -> ClientResponse:
         try:
             self._store.get(key)
         except KeyError:
-            error = ClientResponse(status_codes=ENTRY_DOES_NOT_EXIST, msg='Entry does not exist')
-            if self._is_transaction_started:
-                self._transaction_errors.update({len(self._transaction_errors): error})
-            return error
+            return self._log_update(error=ClientResponse(status_codes=ENTRY_DOES_NOT_EXIST, msg='Entry does not exist'))
 
-        if self._is_transaction_started:
-            self._transaction_log.update({len(self._transaction_log): (self._store.delete, (key, ))})
-        else:
-            self._store.delete(key)
+        self._set_action(self._store.delete, key)
+        return ClientResponse(msg='Entry deleted successfully')
 
-        return ClientResponse(status_codes=SUCCESS_STATUS_CODE, msg='Entry deleted successfully')
-
-    def begin(self):
+    def begin(self) -> ClientResponse:
         if self._is_transaction_started:
             return ClientResponse(status_codes=TRANSACTION_ALREADY_STARTED, msg='Transaction already stared')
 
         self._is_transaction_started = True
         self._transaction_log.clear()
-        return ClientResponse(status_codes=SUCCESS_STATUS_CODE, msg='Transaction stared')
+        return ClientResponse(msg='Transaction stared')
 
-    def commit(self):
+    def commit(self) -> ClientResponse:
         if not self._is_transaction_started:
             return ClientResponse(status_codes=TRANSACTION_NOT_STARTED, msg='Transaction not stared')
 
@@ -105,11 +95,13 @@ class HomeTask_Client:
             action(*arg)
 
         self._transaction_log.clear()
+        return ClientResponse(msg='Transaction was successfully commit')
 
-    def rollback(self):
+    def rollback(self) -> ClientResponse:
         self._is_transaction_started = False
         self._transaction_log.clear()
+        return ClientResponse(msg='Transaction was successfully rollback')
 
-    def keys(self, pattern):
+    def keys(self, pattern: str) -> ClientResponse:
         value = fnmatch.filter(self._store.get_all_keys(), pattern)
-        return ClientResponse(status_codes=SUCCESS_STATUS_CODE, msg='Keys retrieved successfully', data=value)
+        return ClientResponse(msg='Keys retrieved successfully', data=value)
